@@ -27,6 +27,7 @@ export const Route = createFileRoute("/leads/$id")({
         units: "500 units / month",
         budget: "₹750 - ₹1,050",
         timeline: "30 days",
+        summary: "Active wholesale sourcing for premium bamboo organizers and handcrafted home decor items.",
         tags: ["B2B Sourcing", "Active Match"],
       };
     }
