@@ -128,6 +128,9 @@ function Profile() {
               Sign Out
             </button>
           </div>
+          <Link to="/status" className="btn-outline text-xs py-2 w-full text-center flex justify-center gap-1.5 border-dashed border-primary/30 bg-primary/5">
+            System Diagnostics & Status
+          </Link>
         </section>
 
         <div className="flex gap-5 border-b border-border">
