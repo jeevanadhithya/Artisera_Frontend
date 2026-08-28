@@ -122,8 +122,20 @@ function Review() {
   };
 
   // AI Catalog Generator Trigger
+  const [generatingMessage, setGeneratingMessage] = useState('Understanding your craft...');
+  
   const handleGenerateCatalog = async () => {
     setGenerating(true);
+    setGeneratingMessage('Understanding your craft...');
+    
+    const messageRotation = setInterval(() => {
+      setGeneratingMessage(prev => {
+        if (prev.includes('Understanding')) return 'Creating your product description...';
+        if (prev.includes('Creating')) return 'Preparing your marketplace listing...';
+        return 'Understanding your craft...';
+      });
+    }, 1500);
+
     try {
       const res = await api.post<any>(`/products/${productId}/generate-catalog`);
       toast.success('AI catalog generated successfully!');
@@ -132,6 +144,7 @@ function Review() {
     } catch (e: any) {
       toast.error(e.message || 'AI generation failed');
     } finally {
+      clearInterval(messageRotation);
       setGenerating(false);
     }
   };
@@ -198,7 +211,29 @@ function Review() {
     <PhoneFrame>
       <div className="pb-8">
         <PageHeader title="AI Catalog Review" back="/add" />
-        <div className="space-y-5 px-4">
+        
+        {/* Step Progress Indicator */}
+        <div className="px-4 py-3.5 border-b border-border bg-card">
+          <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
+            <span className="text-success flex items-center gap-0.5">✓ 1 Photo</span>
+            <span className={transcript ? "text-success flex items-center gap-0.5" : "text-primary flex items-center gap-0.5"}>
+              {transcript ? '✓' : '●'} 2 Voice
+            </span>
+            <span className={product.ai_generated ? "text-success flex items-center gap-0.5" : "text-muted-foreground flex items-center gap-0.5"}>
+              {product.ai_generated ? '✓' : '○'} 3 Catalog
+            </span>
+            <span className="text-muted-foreground">○ 4 Price</span>
+            <span className="text-muted-foreground">○ 5 Publish</span>
+          </div>
+          <div className="relative mt-2.5 h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+            <div 
+              className="absolute left-0 top-0 h-full bg-primary transition-all duration-300"
+              style={{ width: product.ai_generated ? '60%' : (transcript ? '40%' : '20%') }}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-5 px-4 pt-3">
           
           {/* Enhanced Image Display */}
           <div className="app-card overflow-hidden p-3 bg-card border border-border">
@@ -219,11 +254,16 @@ function Review() {
           {/* Voice Entry / Transcript Section */}
           <div className="app-card p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-display font-bold text-base">Voice Description</h3>
+              <div>
+                <h3 className="font-display font-bold text-base">Voice Description</h3>
+                <p className="text-[10px] text-muted-foreground mt-0.5 max-w-[15rem]">
+                  Speak naturally. Tell us what the product is made of, where it is made, its size, craft style and anything special about it.
+                </p>
+              </div>
               {isRecording ? (
                 <button
                   onClick={stopRecording}
-                  className="flex items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-1 text-xs font-bold text-destructive animate-pulse"
+                  className="flex items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-2 text-xs font-bold text-destructive animate-pulse"
                 >
                   <Square className="h-3.5 w-3.5 fill-destructive" /> Stop
                 </button>
@@ -231,9 +271,9 @@ function Review() {
                 <button
                   onClick={startRecording}
                   disabled={transcribing}
-                  className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary hover:bg-primary/20 transition-colors"
+                  className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-2 text-xs font-bold text-primary hover:bg-primary/20 transition-colors"
                 >
-                  <Mic className="h-3.5 w-3.5" /> Record Description
+                  <Mic className="h-3.5 w-3.5" /> {transcript ? 'Re-record' : 'Record'}
                 </button>
               )}
             </div>
@@ -243,12 +283,17 @@ function Review() {
                 <Loader2 className="h-4 w-4 animate-spin text-primary" /> Transcribing audio description...
               </div>
             ) : transcript ? (
-              <div className="rounded-xl bg-secondary p-3 text-sm text-muted-foreground italic border border-border/40">
-                "{transcript}"
+              <div className="space-y-2">
+                <div className="rounded-xl bg-secondary p-3.5 text-sm text-muted-foreground italic border border-border/40">
+                  "{transcript}"
+                </div>
+                <div className="flex justify-end gap-2 text-[10px] font-extrabold text-success uppercase">
+                  <span>✓ Transcribed</span>
+                </div>
               </div>
             ) : (
               <p className="text-xs text-muted-foreground text-center py-4 bg-secondary/40 rounded-xl">
-                No voice transcription. Record one to help AI extract better descriptors.
+                No voice transcription. Record description above to generate catalog details automatically.
               </p>
             )}
           </div>
@@ -257,20 +302,20 @@ function Review() {
           {!product.ai_generated && (
             <div className="rounded-2xl bg-ai-soft p-4 border border-ai/20 space-y-3 text-center">
               <p className="text-xs font-semibold text-ai-foreground">
-                Photo and voice description captured. Trigger AI listing generation to construct the full metadata.
+                {generating ? generatingMessage : 'Photo and voice description captured. Trigger AI listing generation to construct the full metadata.'}
               </p>
               <button
                 onClick={handleGenerateCatalog}
                 disabled={generating || !hasMediaForAI}
-                className="btn-cta w-full py-3 flex items-center justify-center gap-2"
+                className="btn-cta w-full py-3.5 flex items-center justify-center gap-2"
               >
                 {generating ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Auto-Generating Catalog...
+                    <Loader2 className="h-4 w-4 animate-spin" /> {generatingMessage}
                   </>
                 ) : (
                   <>
-                    <Sparkles className="h-4 w-4" /> Run AI Catalog Builder
+                    <Sparkles className="h-4 w-4" /> Create My Product Listing
                   </>
                 )}
               </button>

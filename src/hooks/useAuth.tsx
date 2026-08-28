@@ -10,6 +10,7 @@ export interface AuthContextType {
   profile: any | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,15 +31,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const artisanProfile = await api.get<any>('/artisans/me');
         setProfile(artisanProfile);
       } else {
-        // Mock profile / placeholder for buyer
-        setProfile({
-          id: currentUser.id,
-          name: currentUser.user_metadata?.['name'] || currentUser.email?.split('@')[0] || 'Buyer',
-          role: 'buyer'
-        });
+        const buyerProfile = await api.get<any>('/profile/me');
+        setProfile(buyerProfile.profile);
+        setRole(buyerProfile.role);
       }
     } catch (e) {
       console.error('Failed to fetch user profile context:', e);
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (user) {
+      await fetchProfile(user);
     }
   };
 
@@ -85,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, role, profile, loading, signOut }}>
+    <AuthContext.Provider value={{ user, session, role, profile, loading, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

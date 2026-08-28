@@ -1,11 +1,10 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { useState, useEffect } from 'react';
-import { BadgeCheck, MapPin, MoreVertical, Pencil, Plus, Share2, Sparkles, Upload, Loader2 } from 'lucide-react';
+import { BadgeCheck, MapPin, MoreVertical, Pencil, Plus, Sparkles, Upload, Loader2, XCircle, Phone, Globe, Briefcase, Settings } from 'lucide-react';
 import { PhoneFrame } from '@/components/AppShell';
 import { Chip } from '@/components/ui-bits';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../lib/api-client';
-import artisanImg from '@/assets/artisan-meena.jpg';
 import { toast } from 'sonner';
 
 export const Route = createFileRoute('/profile')({
@@ -13,17 +12,39 @@ export const Route = createFileRoute('/profile')({
 });
 
 function Profile() {
-  const { user, profile, role, loading, signOut } = useAuth();
-  const [tab, setTab] = useState<'About' | 'Products' | 'Story'>('Products');
+  const { user, profile, role, loading, signOut, refreshProfile } = useAuth();
+  const navigate = useNavigate();
+
+  // Tab State
+  const [tab, setTab] = useState<'About' | 'Products' | 'Requests' | 'Story'>('Products');
+  
+  // Lists
   const [products, setProducts] = useState<any[]>([]);
+  const [buyerRequests, setBuyerRequests] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({
     total_products: 0,
     published_products: 0,
     pending_products: 0,
     market_opportunities: 0
   });
-  const [loadingProducts, setLoadingProducts] = useState(false);
-  const navigate = useNavigate();
+
+  const [loadingItems, setLoadingItems] = useState(false);
+
+  // Profile Form States
+  const [isEditing, setIsEditing] = useState(false);
+  const [formName, setFormName] = useState('');
+  const [formPhone, setFormPhone] = useState('');
+  const [formState, setFormState] = useState('');
+  const [formDistrict, setFormDistrict] = useState('');
+  const [formCraftType, setFormCraftType] = useState('');
+  
+  // Buyer-specific Form States
+  const [formOrgName, setFormOrgName] = useState('');
+  const [formCategory, setFormCategory] = useState('');
+  const [formLocation, setFormLocation] = useState('');
+  const [formInfo, setFormInfo] = useState('');
+
+  const [updatingProfile, setUpdatingProfile] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -31,33 +52,116 @@ function Profile() {
       return;
     }
 
-    if (profile?.id) {
-      setLoadingProducts(true);
+    if (profile) {
+      // Seed form values
+      setFormName(profile['name'] || '');
+      setFormPhone(profile['phone'] || '');
+      setFormState(profile['state'] || '');
+      setFormDistrict(profile['district'] || '');
+      setFormCraftType(profile['craft_type'] || '');
       
-      // Fetch products list
-      api.get<any>('/products')
-        .then(data => {
-          setProducts(data?.items || []);
-        })
-        .catch(err => {
-          console.error('Failed to load products:', err);
-        });
+      setFormOrgName(profile['organization_name'] || '');
+      setFormCategory(profile['business_category'] || '');
+      setFormLocation(profile['location'] || '');
+      setFormInfo(profile['buyer_information'] || '');
 
-      // Fetch dashboard stats
-      api.get<any>('/artisans/me/dashboard')
-        .then(res => {
-          if (res.stats) {
-            setStats(res.stats);
-          }
-        })
-        .catch(err => {
-          console.error('Failed to load dashboard stats:', err);
-        })
-        .finally(() => {
-          setLoadingProducts(false);
-        });
+      // If profile is incomplete, automatically open the edit view
+      if (profile['profile_status'] !== 'verified') {
+        setIsEditing(true);
+      }
+
+      setLoadingItems(true);
+
+      if (role === 'artisan') {
+        setTab('Products');
+        // Fetch products list
+        api.get<any>('/products')
+          .then(data => {
+            setProducts(data?.items || []);
+          })
+          .catch(err => console.error('Failed to load products:', err));
+
+        // Fetch dashboard stats
+        api.get<any>('/artisans/me/dashboard')
+          .then(res => {
+            if (res.stats) setStats(res.stats);
+          })
+          .catch(err => console.error('Failed to load dashboard stats:', err))
+          .finally(() => setLoadingItems(false));
+      } else if (role === 'buyer') {
+        setTab('Requests');
+        // Fetch buyer requests
+        api.get<any>('/buyers/requests')
+          .then(data => {
+            setBuyerRequests(data?.items || []);
+          })
+          .catch(err => console.error('Failed to load B2B requests:', err))
+          .finally(() => setLoadingItems(false));
+      } else {
+        setLoadingItems(false);
+      }
     }
-  }, [user, profile, loading]);
+  }, [user, profile, role, loading]);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUpdatingProfile(true);
+    try {
+      const payload: Record<string, any> = {};
+      payload['name'] = formName;
+      payload['phone'] = formPhone;
+
+      if (role === 'artisan') {
+        payload['state'] = formState;
+        payload['district'] = formDistrict;
+        payload['craft_type'] = formCraftType;
+      } else if (role === 'buyer') {
+        payload['location'] = formLocation;
+        payload['organization_name'] = formOrgName;
+        payload['business_category'] = formCategory;
+        payload['buyer_information'] = formInfo;
+      }
+
+      await api.put<any>('/profile/me', payload);
+      toast.success('Profile updated successfully!');
+      setIsEditing(false);
+      await refreshProfile();
+    } catch (error: any) {
+      console.error('Failed to save profile:', error);
+      toast.error(error.message || 'Failed to save profile details');
+    } finally {
+      setUpdatingProfile(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success('Signed out successfully');
+    navigate({ to: '/login' });
+  };
+
+  // 1. Calculate Profile Completeness Percentage
+  const calculateCompleteness = () => {
+    if (!profile) return 0;
+    let completedFields = 0;
+    const totalFields = 5;
+
+    if (role === 'artisan') {
+      if (profile['name']) completedFields++;
+      if (profile['phone']) completedFields++;
+      if (profile['state']) completedFields++;
+      if (profile['district']) completedFields++;
+      if (profile['craft_type']) completedFields++;
+    } else if (role === 'buyer') {
+      if (profile['name']) completedFields++;
+      if (profile['phone']) completedFields++;
+      if (profile['location']) completedFields++;
+      if (profile['organization_name']) completedFields++;
+      if (profile['business_category']) completedFields++;
+    }
+
+    return Math.round((completedFields / totalFields) * 100);
+  };
 
   if (loading) {
     return (
@@ -73,187 +177,454 @@ function Profile() {
     return null;
   }
 
-  const name = profile.name || user.email?.split('@')[0] || 'Artisan';
-  const state = profile.state || 'Unknown';
-  const district = profile.district || 'Unknown';
-  const craftType = profile.craft_type || 'Crafts';
+  const name = profile['name'] || user.email?.split('@')[0] || 'User';
+  const state = profile['state'] || 'Unknown';
+  const district = profile['district'] || 'Unknown';
+  const craftType = profile['craft_type'] || 'Crafts';
+  const isVerified = profile['profile_status'] === 'verified';
+  const completenessPercent = calculateCompleteness();
 
-  const tabs = [
-    { id: 'About', label: 'About' },
-    { id: 'Products', label: `Products (${products.length})` },
-    { id: 'Story', label: 'Story' }
-  ] as const;
-
-  const handleSignOut = async () => {
-    await signOut();
-    toast.success('Signed out successfully');
-    navigate({ to: '/login' });
-  };
+  // 2. Resolve Profile Avatar from Google OAuth user info or dynamic Initials API
+  const avatarUrl = profile['profile_image'] || 
+                    user.user_metadata?.['avatar_url'] || 
+                    user.user_metadata?.['picture'] || 
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=6366f1&color=fff&size=128&bold=true`;
 
   return (
     <PhoneFrame>
       <div className="space-y-4 px-4 pb-8 pt-4">
-        <section className="ai-surface app-card space-y-3 p-5 text-center">
+        
+        {/* Profile Card */}
+        <section className="ai-surface app-card space-y-3.5 p-5 text-center relative overflow-hidden">
+          {/* Verified Badge Header */}
+          <div className="flex justify-center">
+            {isVerified ? (
+              <span className="badge bg-success/10 text-success text-[10px] font-bold px-3 py-1 rounded-full border border-success/20 flex items-center gap-1">
+                <BadgeCheck className="h-3.5 w-3.5 text-success fill-success/15" /> Verified Profile
+              </span>
+            ) : (
+              <span className="badge bg-destructive/10 text-destructive text-[10px] font-bold px-3 py-1 rounded-full border border-destructive/20 flex items-center gap-1">
+                <XCircle className="h-3.5 w-3.5 text-destructive fill-destructive/15 animate-pulse" /> Setup Required
+              </span>
+            )}
+          </div>
+
           <div className="relative mx-auto w-fit">
             <img
-              src={profile.profile_image || artisanImg}
+              src={avatarUrl}
               alt={name}
               width={600}
               height={600}
-              className="h-28 w-28 rounded-full border-4 border-card object-cover"
+              className="h-24 w-24 rounded-full border-4 border-card object-cover border-primary/20 shadow-sm"
             />
-            <BadgeCheck className="absolute bottom-1 right-1 h-7 w-7 rounded-full bg-card text-ai" />
           </div>
-          <h1 className="font-display text-3xl font-extrabold">{name}</h1>
-          <p className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
-            <MapPin className="h-4 w-4" /> {craftType} Artisan, {district}, {state}
-          </p>
-          <div className="grid grid-cols-3 divide-x divide-border rounded-xl bg-secondary py-3">
-            {[
-              [products.length.toString(), 'Products'],
-              [stats.market_opportunities?.toString() || '0', 'Matches'],
-              [stats.pending_products?.toString() || '0', 'Reviewing'],
-            ].map(([v, l]) => (
-              <div key={l}>
-                <p className="text-xl font-extrabold text-primary">{v}</p>
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{l}</p>
-              </div>
-            ))}
+
+          <div className="space-y-1">
+            <h1 className="font-display text-2xl font-extrabold">{name}</h1>
+            {role === 'artisan' ? (
+              <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5" /> {craftType} Artisan, {district}, {state}
+              </p>
+            ) : (
+              <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+                <Globe className="h-3.5 w-3.5" /> Buyer at {profile['organization_name'] || 'Independent Company'}, {profile['location'] || 'India'}
+              </p>
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <button className="btn-cta text-sm py-2">
+
+          {/* Completeness Indicator */}
+          <div className="space-y-1 px-1 py-1 text-left bg-secondary/35 rounded-xl p-3 border border-border/20">
+            <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              <span>Profile Setup Progress</span>
+              <span className="text-primary">{completenessPercent}%</span>
+            </div>
+            <div className="relative h-2 w-full bg-secondary rounded-full overflow-hidden border border-border/10">
+              <div 
+                className="absolute left-0 top-0 h-full bg-primary transition-all duration-500 rounded-full"
+                style={{ width: `${completenessPercent}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Stats Breakdown (Artisan only) */}
+          {role === 'artisan' && isVerified && (
+            <div className="grid grid-cols-3 divide-x divide-border rounded-xl bg-secondary py-3">
+              {[
+                [products.length.toString(), 'Products'],
+                [stats.market_opportunities?.toString() || '0', 'Matches'],
+                [stats.pending_products?.toString() || '0', 'Reviewing'],
+              ].map(([v, l]) => (
+                <div key={l}>
+                  <p className="text-lg font-extrabold text-primary">{v}</p>
+                  <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-semibold">{l}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <button 
+              onClick={() => setIsEditing(true)}
+              className="btn-cta text-xs py-2.5 flex items-center justify-center gap-1.5 font-bold"
+            >
               <Pencil className="h-4 w-4" /> Edit Profile
             </button>
-            <button onClick={handleSignOut} className="btn-outline text-sm py-2 text-destructive border-destructive/20 hover:bg-destructive/5">
+            <button 
+              onClick={handleSignOut} 
+              className="btn-outline text-xs py-2.5 text-destructive border-destructive/20 hover:bg-destructive/5 font-semibold"
+            >
               Sign Out
             </button>
           </div>
-          <Link to="/status" className="btn-outline text-xs py-2 w-full text-center flex justify-center gap-1.5 border-dashed border-primary/30 bg-primary/5">
-            System Diagnostics & Status
-          </Link>
         </section>
 
-        <div className="flex gap-5 border-b border-border">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={
-                '-mb-px border-b-2 pb-2 text-sm font-semibold ' +
-                (tab === t.id
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground')
-              }
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        {/* ─── EDIT PROFILE VIEW ─── */}
+        {isEditing && (
+          <section className="app-card p-5 border border-primary/30 bg-card space-y-4 text-left">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h2 className="font-display font-extrabold text-lg text-primary">Complete Profile Setup</h2>
+                <p className="text-[10px] text-muted-foreground uppercase font-bold mt-0.5">Setup Status: {completenessPercent}% Complete</p>
+              </div>
+              {isVerified && (
+                <button 
+                  onClick={() => setIsEditing(false)}
+                  className="text-xs font-bold text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
 
-        {tab === 'About' ? (
-          <p className="app-card p-4 text-sm leading-relaxed text-muted-foreground">
-            {profile.location || `${name} has been practicing ${craftType} in ${state} for several years. Her workshop supports local artisans and produces traditional, high-quality handcrafted work.`}
-          </p>
-        ) : tab === 'Story' ? (
-          <p className="app-card p-4 text-sm leading-relaxed text-muted-foreground">
-            "Every piece carries the story and effort of the artisan who shaped it. We want buyers far away to feel the cultural heritage behind our traditional craft techniques."
-          </p>
-        ) : (
-          <div className="space-y-4">
-            <Link
-              to="/add"
-              className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-primary/40 bg-card px-4 py-8 text-center"
-            >
-              <span className="grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground">
-                <Plus className="h-6 w-6" />
-              </span>
-              <span className="font-display text-xl font-bold text-primary">Add New Product</span>
-              <span className="text-sm text-muted-foreground">
-                Use <Sparkles className="inline h-3.5 w-3.5 text-ai" /> AI Scan to automatically
-                generate product details from photos and voice descriptions.
-              </span>
-            </Link>
+            <form onSubmit={handleSaveProfile} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  className="w-full rounded-xl bg-secondary px-3 py-2 text-sm border border-border/50 outline-none"
+                  placeholder="e.g. Meena Devi"
+                />
+              </div>
 
-            {loadingProducts ? (
-              <p className="text-center text-sm text-muted-foreground py-6">Loading products...</p>
-            ) : products.length === 0 ? (
-              <p className="text-center text-sm text-muted-foreground py-6">No products listed yet.</p>
-            ) : (
-              products.map((p) => {
-                const formattedPrice = p.price ? `₹${Number(p.price).toLocaleString('en-IN')}` : '--';
-                const statusLabel = p.status.charAt(0).toUpperCase() + p.status.slice(1);
-                
-                return (
-                  <article key={p.id} className="app-card overflow-hidden">
-                    <div className="relative">
-                      {p.image_url ? (
-                        <img
-                          src={p.image_url}
-                          alt={p.name}
-                          loading="lazy"
-                          width={800}
-                          height={700}
-                          className="h-48 w-full object-cover"
-                        />
-                      ) : (
-                        <div className="h-48 w-full bg-secondary flex items-center justify-center">
-                          <span className="text-xs text-muted-foreground">No image available</span>
-                        </div>
-                      )}
-                      <span
-                        className={
-                          'absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-bold text-primary-foreground ' +
-                          (p.status === 'published' ? 'bg-success' : 'bg-warning')
-                        }
-                      >
-                        {statusLabel}
-                      </span>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Phone Number</label>
+                <input
+                  type="tel"
+                  required
+                  value={formPhone}
+                  onChange={(e) => setFormPhone(e.target.value)}
+                  className="w-full rounded-xl bg-secondary px-3 py-2 text-sm border border-border/50 outline-none"
+                  placeholder="e.g. +91 98765 43210"
+                />
+              </div>
+
+              {role === 'artisan' ? (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">State</label>
+                      <input
+                        type="text"
+                        required
+                        value={formState}
+                        onChange={(e) => setFormState(e.target.value)}
+                        className="w-full rounded-xl bg-secondary px-3 py-2 text-sm border border-border/50 outline-none"
+                        placeholder="e.g. Bihar"
+                      />
                     </div>
-                    <div className="space-y-3 p-4">
-                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-                        <h2 className="min-w-0 truncate font-display text-lg font-bold">{p.name || 'Draft Product'}</h2>
-                        <span className="shrink-0 font-extrabold text-primary">{formattedPrice}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {p.category && <Chip>{p.category}</Chip>}
-                        {p.material && <Chip>{p.material}</Chip>}
-                        {p.craft_type && <Chip>{p.craft_type}</Chip>}
-                      </div>
-                      
-                      {p.status === 'published' ? (
-                        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                          <button className="flex items-center justify-center gap-2 rounded-xl bg-secondary py-2.5 text-sm font-semibold">
-                            <Pencil className="h-4 w-4" /> Edit
-                          </button>
-                          <button
-                            aria-label="More options"
-                            className="grid w-10 place-items-center rounded-xl border border-border"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 gap-2">
-                          {p.status === 'review' ? (
-                            <Link to="/pricing" search={{ productId: p.id }} className="btn-cta py-2.5 text-center text-sm">
-                              <Upload className="h-4 w-4" /> Publish
-                            </Link>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">District</label>
+                      <input
+                        type="text"
+                        required
+                        value={formDistrict}
+                        onChange={(e) => setFormDistrict(e.target.value)}
+                        className="w-full rounded-xl bg-secondary px-3 py-2 text-sm border border-border/50 outline-none"
+                        placeholder="e.g. Madhubani"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Craft Category</label>
+                    <input
+                      type="text"
+                      required
+                      value={formCraftType}
+                      onChange={(e) => setFormCraftType(e.target.value)}
+                      className="w-full rounded-xl bg-secondary px-3 py-2 text-sm border border-border/50 outline-none"
+                      placeholder="e.g. Madhubani Painting, Wooden Carving"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Organization Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={formOrgName}
+                      onChange={(e) => setFormOrgName(e.target.value)}
+                      className="w-full rounded-xl bg-secondary px-3 py-2 text-sm border border-border/50 outline-none"
+                      placeholder="e.g. Indian Craft Hub Ltd."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Business Category</label>
+                      <input
+                        type="text"
+                        required
+                        value={formCategory}
+                        onChange={(e) => setFormCategory(e.target.value)}
+                        className="w-full rounded-xl bg-secondary px-3 py-2 text-sm border border-border/50 outline-none"
+                        placeholder="e.g. B2B Wholesaler"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Location</label>
+                      <input
+                        type="text"
+                        required
+                        value={formLocation}
+                        onChange={(e) => setFormLocation(e.target.value)}
+                        className="w-full rounded-xl bg-secondary px-3 py-2 text-sm border border-border/50 outline-none"
+                        placeholder="e.g. New Delhi"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Sourcing Description / Requirements</label>
+                    <textarea
+                      rows={3}
+                      value={formInfo}
+                      onChange={(e) => setFormInfo(e.target.value)}
+                      className="w-full rounded-xl bg-secondary px-3 py-2 text-sm border border-border/50 outline-none resize-none"
+                      placeholder="Describe what kind of crafts you source..."
+                    />
+                  </div>
+                </>
+              )}
+
+              <button
+                type="submit"
+                disabled={updatingProfile}
+                className="btn-cta w-full py-3.5 flex justify-center items-center font-bold text-sm mt-2"
+              >
+                {updatingProfile ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Save and Verify Profile'}
+              </button>
+            </form>
+          </section>
+        )}
+
+        {/* ─── MAIN APP CONTENTS (Verified only) ─── */}
+        {isVerified && !isEditing && (
+          <>
+            {/* Tabs Selector */}
+            <div className="flex gap-5 border-b border-border">
+              {role === 'artisan' ? (
+                <>
+                  <button
+                    onClick={() => setTab('Products')}
+                    className={`-mb-px border-b-2 pb-2 text-sm font-semibold ${tab === 'Products' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}
+                  >
+                    Products ({products.length})
+                  </button>
+                  <button
+                    onClick={() => setTab('About')}
+                    className={`-mb-px border-b-2 pb-2 text-sm font-semibold ${tab === 'About' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}
+                  >
+                    About
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setTab('Requests')}
+                    className={`-mb-px border-b-2 pb-2 text-sm font-semibold ${tab === 'Requests' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}
+                  >
+                    B2B Requests ({buyerRequests.length})
+                  </button>
+                  <button
+                    onClick={() => setTab('Story')}
+                    className={`-mb-px border-b-2 pb-2 text-sm font-semibold ${tab === 'Story' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}
+                  >
+                    Sourcing Info
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Tab Contents: Artisan Products */}
+            {tab === 'Products' && role === 'artisan' && (
+              <div className="space-y-4">
+                <Link
+                  to="/add"
+                  className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-primary/40 bg-card px-4 py-8 text-center"
+                >
+                  <span className="grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground">
+                    <Plus className="h-6 w-6" />
+                  </span>
+                  <span className="font-display text-xl font-bold text-primary">Add New Product</span>
+                  <span className="text-sm text-muted-foreground">
+                    Use <Sparkles className="inline h-3.5 w-3.5 text-ai" /> AI Scan to automatically
+                    generate product details from photos and voice descriptions.
+                  </span>
+                </Link>
+
+                {loadingItems ? (
+                  <p className="text-center text-sm text-muted-foreground py-6">Loading products...</p>
+                ) : products.length === 0 ? (
+                  <p className="text-center text-sm text-muted-foreground py-6">No products listed yet.</p>
+                ) : (
+                  products.map((p) => {
+                    const formattedPrice = p.price ? `₹${Number(p.price).toLocaleString('en-IN')}` : '--';
+                    const statusLabel = p.status.charAt(0).toUpperCase() + p.status.slice(1);
+                    
+                    return (
+                      <article key={p.id} className="app-card overflow-hidden">
+                        <div className="relative">
+                          {p.image_url ? (
+                            <img
+                              src={p.image_url}
+                              alt={p.name}
+                              loading="lazy"
+                              width={800}
+                              height={700}
+                              className="h-48 w-full object-cover"
+                            />
                           ) : (
-                            <Link to="/review" search={{ productId: p.id }} className="btn-cta py-2.5 text-center text-sm">
-                              <Sparkles className="h-4 w-4 text-yellow-300" /> AI Process
-                            </Link>
+                            <div className="h-48 w-full bg-secondary flex items-center justify-center">
+                              <span className="text-xs text-muted-foreground">No image available</span>
+                            </div>
                           )}
-                          <Link to="/review" search={{ productId: p.id }} className="rounded-xl bg-secondary py-2.5 text-center text-sm font-semibold">
-                            Edit Draft
-                          </Link>
+                          <span
+                            className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-bold text-primary-foreground ${p.status === 'published' ? 'bg-success' : 'bg-warning'}`}
+                          >
+                            {statusLabel}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  </article>
-                );
-              })
+                        <div className="space-y-3 p-4">
+                          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+                            <h2 className="min-w-0 truncate font-display text-lg font-bold">{p.name || 'Draft Product'}</h2>
+                            <span className="shrink-0 font-extrabold text-primary">{formattedPrice}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {p.category && <Chip>{p.category}</Chip>}
+                            {p.material && <Chip>{p.material}</Chip>}
+                            {p.craft_type && <Chip>{p.craft_type}</Chip>}
+                          </div>
+                          
+                          {p.status === 'published' ? (
+                            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                              <button className="flex items-center justify-center gap-2 rounded-xl bg-secondary py-2.5 text-sm font-semibold">
+                                <Pencil className="h-4 w-4" /> Edit Details
+                              </button>
+                              <button
+                                aria-label="More options"
+                                className="grid w-10 place-items-center rounded-xl border border-border"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-2">
+                              {p.status === 'review' ? (
+                                <Link to="/pricing" search={{ productId: p.id }} className="btn-cta py-2.5 text-center text-sm font-bold">
+                                  <Upload className="h-4 w-4" /> Publish Product
+                                </Link>
+                              ) : (
+                                <Link to="/review" search={{ productId: p.id }} className="btn-cta py-2.5 text-center text-sm font-bold">
+                                  <Sparkles className="h-4 w-4 text-yellow-300 animate-pulse" /> AI Process
+                                </Link>
+                              )}
+                              <Link to="/review" search={{ productId: p.id }} className="rounded-xl bg-secondary py-2.5 text-center text-sm font-semibold border border-border/40">
+                                Edit Draft
+                              </Link>
+                            </div>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })
+                )}
+              </div>
             )}
-          </div>
+
+            {/* Tab Contents: Artisan About */}
+            {tab === 'About' && role === 'artisan' && (
+              <p className="app-card p-4 text-sm leading-relaxed text-muted-foreground">
+                {profile['location'] || `${name} has been practicing ${craftType} in ${state} for several years. Her workshop supports local artisans and produces traditional, high-quality handcrafted work.`}
+              </p>
+            )}
+
+            {/* Tab Contents: Buyer Requests */}
+            {tab === 'Requests' && role === 'buyer' && (
+              <div className="space-y-4 text-left">
+                <Link
+                  to="/explore"
+                  className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-primary/45 bg-card px-4 py-8 text-center"
+                >
+                  <span className="grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground">
+                    <Plus className="h-6 w-6" />
+                  </span>
+                  <span className="font-display text-xl font-bold text-primary">Create B2B Request</span>
+                  <span className="text-sm text-muted-foreground">
+                    Define bulk order quantities, budgets, and deadlines to match with registered artisans.
+                  </span>
+                </Link>
+
+                {loadingItems ? (
+                  <p className="text-center text-sm text-muted-foreground py-6">Loading B2B requests...</p>
+                ) : buyerRequests.length === 0 ? (
+                  <p className="text-center text-sm text-muted-foreground py-6">No sourcing requests created yet.</p>
+                ) : (
+                  buyerRequests.map((req: any) => (
+                    <article key={req.id} className="app-card p-4 border border-border space-y-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="badge bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded border border-primary/20">
+                            {req.product_category}
+                          </span>
+                          <h3 className="font-display font-bold text-base mt-1.5">Bulk order for {req.quantity} units</h3>
+                        </div>
+                        <span className="badge bg-success/10 text-success text-[10px] font-bold px-2 py-0.5 rounded border border-success/20">
+                          {req.status?.toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{req.description || 'No description provided.'}</p>
+                      
+                      <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-muted-foreground pt-1 border-t border-border/50">
+                        <div>Budget: ₹{req.budget_per_unit} / unit</div>
+                        <div>Deadline: {req.deadline}</div>
+                      </div>
+                    </article>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Tab Contents: Buyer Story */}
+            {tab === 'Story' && role === 'buyer' && (
+              <div className="app-card p-4 space-y-3 text-left">
+                <h3 className="font-display font-bold text-sm text-primary">Sourcing Intent</h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {profile['buyer_information'] || 'No sourcing details entered. Edit your profile to describe your business requirements and interest.'}
+                </p>
+                <div className="space-y-1 pt-1.5 border-t border-border/50 text-xs">
+                  <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-primary" /> {profile['phone']}</div>
+                  <div className="flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" /> {profile['business_category']}</div>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </PhoneFrame>
