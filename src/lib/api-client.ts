@@ -1,6 +1,18 @@
 import { supabase } from './supabase';
 
-const API_BASE_URL = import.meta.env['VITE_API_BASE_URL'] || 'http://localhost:8000/api';
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env['VITE_API_BASE_URL'];
+  if (envUrl) return envUrl;
+  
+  // Auto-detect production backend fallback when running on Vercel
+  if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+    return 'https://artisera-backend.vercel.app/api';
+  }
+  
+  return 'http://localhost:8000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export interface ApiResponse<T> {
   success: boolean;
