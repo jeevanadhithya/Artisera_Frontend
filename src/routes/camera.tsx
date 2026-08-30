@@ -147,9 +147,9 @@ function CameraView() {
     if (!productId) return;
     setCurrentStep('enhancing');
     try {
-      const res = await api.enhanceImage<any>(productId);
+      const res = await api.enhanceImage<any>(productId, selectedFile || undefined);
       setEnhancedImageUrl(res.enhanced_image_url);
-      setOriginalImageUrl(res.original_image_url);
+      setOriginalImageUrl(res.original_image_url || res.image_url);
       setCurrentStep('comparison');
     } catch (error) {
       console.error('Enhancement failed:', error);

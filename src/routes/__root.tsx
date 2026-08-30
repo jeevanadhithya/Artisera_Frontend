@@ -140,11 +140,15 @@ function AuthRedirectWrapper() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background px-4">
-        <div className="text-center space-y-3">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto" />
-          <div className="text-sm font-semibold text-muted-foreground">
-            Loading secure connection...
+      <div className="flex h-screen flex-col items-center justify-center bg-background px-4">
+        <div className="text-center space-y-4 animate-in fade-in zoom-in duration-300">
+          <div className="relative mx-auto h-20 w-20 flex items-center justify-center">
+            <img src="/logo.png" alt="Artisera" className="h-14 w-14 object-contain animate-pulse" />
+            <div className="absolute inset-0 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+          </div>
+          <div className="space-y-1">
+            <h1 className="font-display text-xl font-extrabold text-primary tracking-wider uppercase">ARTISERA</h1>
+            <p className="text-xs font-semibold text-muted-foreground">AI Marketplace for Artisans</p>
           </div>
         </div>
       </div>
@@ -154,13 +158,17 @@ function AuthRedirectWrapper() {
   return <Outlet />;
 }
 
+import { LanguageProvider } from "../lib/language-context";
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <AuthRedirectWrapper />
+        <LanguageProvider>
+          <AuthRedirectWrapper />
+        </LanguageProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

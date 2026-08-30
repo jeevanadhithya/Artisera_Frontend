@@ -76,13 +76,16 @@ function Signup() {
       <div className="flex min-h-screen flex-col justify-between px-6 py-12">
         <div className="space-y-6 pt-5">
           <div className="text-center">
+            <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 p-2 shadow-sm border border-primary/20">
+              <img src="/logo.png" alt="Artisera Logo" className="h-12 w-12 object-contain" />
+            </div>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-ai-soft px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-ai">
               <Sparkles className="h-4 w-4" /> Artisera Platform
             </span>
-            <h1 className="mt-4 font-display text-4xl font-extrabold tracking-tight text-primary">
+            <h1 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-primary">
               Create Account
             </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-muted-foreground">
               Join traditional artisans and bulk buyers in one sync
             </p>
           </div>

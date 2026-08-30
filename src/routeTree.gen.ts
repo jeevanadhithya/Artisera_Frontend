@@ -21,6 +21,7 @@ import { Route as ProposalRouteImport } from './routes/proposal'
 import { Route as ProposalSentRouteImport } from './routes/proposal-sent'
 import { Route as ReviewRouteImport } from './routes/review'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as StatusRouteImport } from './routes/status'
 import { Route as LeadsIndexRouteImport } from './routes/leads.index'
 import { Route as LeadsIdRouteImport } from './routes/leads.$id'
 
@@ -84,6 +85,11 @@ const SignupRoute = SignupRouteImport.update({
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StatusRoute = StatusRouteImport.update({
+  id: '/status',
+  path: '/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LeadsIndexRoute = LeadsIndexRouteImport.update({
   id: '/leads/',
   path: '/leads/',
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/proposal-sent': typeof ProposalSentRoute
   '/review': typeof ReviewRoute
   '/signup': typeof SignupRoute
+  '/status': typeof StatusRoute
   '/leads/$id': typeof LeadsIdRoute
   '/leads/': typeof LeadsIndexRoute
 }
@@ -124,6 +131,7 @@ export interface FileRoutesByTo {
   '/proposal-sent': typeof ProposalSentRoute
   '/review': typeof ReviewRoute
   '/signup': typeof SignupRoute
+  '/status': typeof StatusRoute
   '/leads/$id': typeof LeadsIdRoute
   '/leads': typeof LeadsIndexRoute
 }
@@ -141,6 +149,7 @@ export interface FileRoutesById {
   '/proposal-sent': typeof ProposalSentRoute
   '/review': typeof ReviewRoute
   '/signup': typeof SignupRoute
+  '/status': typeof StatusRoute
   '/leads/$id': typeof LeadsIdRoute
   '/leads/': typeof LeadsIndexRoute
 }
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/proposal-sent'
     | '/review'
     | '/signup'
+    | '/status'
     | '/leads/$id'
     | '/leads/'
   fileRoutesByTo: FileRoutesByTo
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/proposal-sent'
     | '/review'
     | '/signup'
+    | '/status'
     | '/leads/$id'
     | '/leads'
   id:
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
     | '/proposal-sent'
     | '/review'
     | '/signup'
+    | '/status'
     | '/leads/$id'
     | '/leads/'
   fileRoutesById: FileRoutesById
@@ -208,6 +220,7 @@ export interface RootRouteChildren {
   ProposalSentRoute: typeof ProposalSentRoute
   ReviewRoute: typeof ReviewRoute
   SignupRoute: typeof SignupRoute
+  StatusRoute: typeof StatusRoute
   LeadsIdRoute: typeof LeadsIdRoute
   LeadsIndexRoute: typeof LeadsIndexRoute
 }
@@ -298,6 +311,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/status': {
+      id: '/status'
+      path: '/status'
+      fullPath: '/status'
+      preLoaderRoute: typeof StatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/leads/': {
       id: '/leads/'
       path: '/leads'
@@ -328,6 +348,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProposalSentRoute: ProposalSentRoute,
   ReviewRoute: ReviewRoute,
   SignupRoute: SignupRoute,
+  StatusRoute: StatusRoute,
   LeadsIdRoute: LeadsIdRoute,
   LeadsIndexRoute: LeadsIndexRoute,
 }

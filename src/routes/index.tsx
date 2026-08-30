@@ -67,13 +67,16 @@ function Home() {
         
         {/* Header Greeting & Search */}
         <div className="flex justify-between items-center">
-          <div>
-            <h1 className="font-display text-2xl font-extrabold tracking-tight">
-              {name ? `Hello, ${name}!` : 'Welcome to Artisera'}
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {name ? 'Manage your crafts and opportunities' : 'Empowering traditional Indian artisans'}
-            </p>
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="Artisera Logo" className="h-10 w-10 object-contain shrink-0" />
+            <div>
+              <h1 className="font-display text-xl font-extrabold tracking-tight">
+                {name ? `Hello, ${name}!` : 'Welcome to Artisera'}
+              </h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {name ? 'Manage your crafts and opportunities' : 'Empowering traditional Indian artisans'}
+              </p>
+            </div>
           </div>
           {!user && !loading && (
             <Link to="/login" className="flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-full hover:bg-primary/20 transition-all">
