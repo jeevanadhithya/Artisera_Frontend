@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { supabase } from '../lib/supabase';
 import { api } from '../lib/api-client';
 import { User, Session } from '@supabase/supabase-js';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { prefetchEssentialUserData } from './useAppQueries';
 
 export interface AuthContextType {
   user: User | null;
@@ -16,34 +18,58 @@ export interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [role, setRole] = useState<'artisan' | 'buyer' | 'admin' | null>(null);
-  const [profile, setProfile] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [sessionLoading, setSessionLoading] = useState(true);
 
-  const fetchProfile = async (currentUser: User) => {
-    try {
-      const userRole = currentUser.user_metadata?.['role'] || 'artisan';
-      setRole(userRole);
-      
-      const profileData = await api.get<any>('/profile/me');
-      if (profileData && profileData.profile) {
-        setProfile(profileData.profile);
-        setRole(profileData.role || userRole);
-      } else {
-        // Fallback to /artisans/me
-        const artisanProfile = await api.get<any>('/artisans/me');
-        setProfile(artisanProfile);
+  // Profile Query managed by TanStack Query
+  const {
+    data: profileData,
+    isLoading: isProfileLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ['profile', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const userRole = user.user_metadata?.['role'] || 'artisan';
+      try {
+        const res = await api.get<any>('/profile/me');
+        if (res && res.profile) {
+          const profile = {
+            ...res.profile,
+            role: res.role || userRole,
+          };
+          // Prefetch essential app data for this user/role in parallel
+          prefetchEssentialUserData(queryClient, user, profile.role);
+          return profile;
+        } else {
+          // Fallback to /artisans/me
+          const artisanProfile = await api.get<any>('/artisans/me');
+          const profile = {
+            ...artisanProfile,
+            role: userRole,
+          };
+          prefetchEssentialUserData(queryClient, user, profile.role);
+          return profile;
+        }
+      } catch (e) {
+        console.error('Failed to fetch user profile context:', e);
+        return null;
       }
-    } catch (e) {
-      console.error('Failed to fetch user profile context:', e);
-    }
-  };
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 10, // 10 minutes fresh
+    gcTime: 1000 * 60 * 60, // 1 hour memory
+  });
+
+  const profile = profileData || null;
+  const role = (profileData?.role as 'artisan' | 'buyer' | 'admin') || (user?.user_metadata?.['role'] as 'artisan' | 'buyer' | 'admin') || null;
+  const loading = sessionLoading || (!!user && isProfileLoading);
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchProfile(user);
+      await refetch();
     }
   };
 
@@ -52,26 +78,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user).finally(() => setLoading(false));
-      } else {
-        setLoading(false);
-      }
+      setSessionLoading(false);
     });
 
     // 2. Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        setLoading(true);
-        await fetchProfile(session.user);
-        setLoading(false);
-      } else {
-        setRole(null);
-        setProfile(null);
-        setLoading(false);
-      }
+      setSessionLoading(false);
     });
 
     return () => {
@@ -80,13 +94,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
-    setLoading(true);
+    setSessionLoading(true);
     await supabase.auth.signOut();
+    // Clear all TanStack Query cache on logout to ensure user privacy and fresh state
+    queryClient.clear();
     setUser(null);
     setSession(null);
-    setRole(null);
-    setProfile(null);
-    setLoading(false);
+    setSessionLoading(false);
   };
 
   return (

@@ -1,10 +1,9 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useState, useEffect } from 'react';
 import { Search, Plus, Heart, Star, TrendingUp, Sparkles, BadgeCheck, LogIn, ArrowRight, Loader2, Info } from 'lucide-react';
 import { PhoneFrame } from '@/components/AppShell';
 import { categories as mockCategories } from '@/data/mock';
 import { useAuth } from '../hooks/useAuth';
-import { api } from '../lib/api-client';
+import { useOpportunitiesQuery, useMarketProductsQuery } from '../hooks/useAppQueries';
 import heroImg from '@/assets/hero-craft.jpg';
 import bambooFallback from '@/assets/product-bamboo.jpg';
 
@@ -28,37 +27,10 @@ export const Route = createFileRoute('/')({
 
 function Home() {
   const { user, profile, loading } = useAuth();
-  const [opportunity, setOpportunity] = useState<any | null>(null);
-  const [recentProducts, setRecentProducts] = useState<any[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
+  const { data: opportunities = [] } = useOpportunitiesQuery();
+  const { data: recentProducts = [], isLoading: loadingProducts } = useMarketProductsQuery('', null, 4);
 
-  useEffect(() => {
-    if (user) {
-      api.get<any>('/market/opportunities/me')
-        .then(res => {
-          if (res.opportunities && res.opportunities.length > 0) {
-            setOpportunity(res.opportunities[0]);
-          }
-        })
-        .catch(err => {
-          console.error('Failed to load opportunities:', err);
-        });
-    }
-
-    // Load actual published products from API
-    setLoadingProducts(true);
-    api.get<any>('/market/products?limit=4')
-      .then(res => {
-        setRecentProducts(res.items || []);
-      })
-      .catch(err => {
-        console.error('Failed to load published products:', err);
-      })
-      .finally(() => {
-        setLoadingProducts(false);
-      });
-  }, [user]);
-
+  const opportunity = opportunities.length > 0 ? opportunities[0] : null;
   const name = user ? (profile?.name || user.email?.split('@')[0] || 'Artisan') : null;
 
   return (
@@ -198,7 +170,7 @@ function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
-              {recentProducts.map((p) => {
+              {recentProducts.map((p: any) => {
                 const priceLabel = p.price ? `₹${Number(p.price).toLocaleString('en-IN')}` : '--';
                 const confidence = p.ai_confidence ? (4.0 + p.ai_confidence).toFixed(1) : '4.8';
                 

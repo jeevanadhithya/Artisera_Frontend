@@ -4,6 +4,7 @@ import { BadgeCheck, MapPin, MoreVertical, Pencil, Plus, Sparkles, Upload, Loade
 import { PhoneFrame } from '@/components/AppShell';
 import { Chip } from '@/components/ui-bits';
 import { useAuth } from '../hooks/useAuth';
+import { useArtisanProductsQuery, useDashboardStatsQuery, useBuyerRequestsQuery } from '../hooks/useAppQueries';
 import { api } from '../lib/api-client';
 import { toast } from 'sonner';
 
@@ -18,17 +19,12 @@ function Profile() {
   // Tab State
   const [tab, setTab] = useState<'About' | 'Products' | 'Requests' | 'Story'>('Products');
   
-  // Lists
-  const [products, setProducts] = useState<any[]>([]);
-  const [buyerRequests, setBuyerRequests] = useState<any[]>([]);
-  const [stats, setStats] = useState<any>({
-    total_products: 0,
-    published_products: 0,
-    pending_products: 0,
-    market_opportunities: 0
-  });
+  // TanStack Query hooks for server state
+  const { data: products = [], isLoading: loadingProducts } = useArtisanProductsQuery();
+  const { data: stats = { total_products: 0, published_products: 0, pending_products: 0, market_opportunities: 0 }, isLoading: loadingStats } = useDashboardStatsQuery();
+  const { data: buyerRequests = [], isLoading: loadingRequests } = useBuyerRequestsQuery();
 
-  const [loadingItems, setLoadingItems] = useState(false);
+  const loadingItems = loadingProducts || loadingStats || loadingRequests;
 
   // Profile Form States
   const [isEditing, setIsEditing] = useState(false);
@@ -70,35 +66,10 @@ function Profile() {
         setIsEditing(true);
       }
 
-      setLoadingItems(true);
-
       if (role === 'artisan') {
         setTab('Products');
-        // Fetch products list
-        api.get<any>('/products')
-          .then(data => {
-            setProducts(data?.items || []);
-          })
-          .catch(err => console.error('Failed to load products:', err));
-
-        // Fetch dashboard stats
-        api.get<any>('/artisans/me/dashboard')
-          .then(res => {
-            if (res.stats) setStats(res.stats);
-          })
-          .catch(err => console.error('Failed to load dashboard stats:', err))
-          .finally(() => setLoadingItems(false));
       } else if (role === 'buyer') {
         setTab('Requests');
-        // Fetch buyer requests
-        api.get<any>('/buyers/requests')
-          .then(data => {
-            setBuyerRequests(data?.items || []);
-          })
-          .catch(err => console.error('Failed to load B2B requests:', err))
-          .finally(() => setLoadingItems(false));
-      } else {
-        setLoadingItems(false);
       }
     }
   }, [user, profile, role, loading]);
@@ -443,8 +414,8 @@ function Profile() {
 
         {/* ─── MAIN APP CONTENTS (Verified only) ─── */}
         {isVerified && !isEditing && (() => {
-          const publishedProducts = products.filter(p => p.status === 'published');
-          const draftProducts = products.filter(p => p.status !== 'published');
+          const publishedProducts = products.filter((p: any) => p.status === 'published');
+          const draftProducts = products.filter((p: any) => p.status !== 'published');
 
           return (
             <div className="space-y-4">
@@ -513,7 +484,7 @@ function Profile() {
                       <p className="text-xs text-muted-foreground">Your live products will appear here once published to the marketplace.</p>
                     </div>
                   ) : (
-                    publishedProducts.map((p) => {
+                    publishedProducts.map((p: any) => {
                       const formattedPrice = p.price ? `₹${Number(p.price).toLocaleString('en-IN')}` : '--';
                       return (
                         <article key={p.id} className="app-card overflow-hidden border border-border bg-card shadow-xs">
@@ -573,7 +544,7 @@ function Profile() {
                       <p className="text-xs text-muted-foreground">Draft listings being created will appear here for review and publishing.</p>
                     </div>
                   ) : (
-                    draftProducts.map((p) => {
+                    draftProducts.map((p: any) => {
                       return (
                         <article key={p.id} className="app-card overflow-hidden border border-warning/30 bg-card shadow-xs">
                           <div className="relative">

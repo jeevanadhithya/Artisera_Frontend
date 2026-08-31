@@ -3,8 +3,9 @@ import { useState, useEffect } from 'react';
 import { Search, Star, Loader2, Sparkles } from 'lucide-react';
 import { PhoneFrame } from '@/components/AppShell';
 import { Chip } from '@/components/ui-bits';
-import { api } from '../lib/api-client';
 import { toast } from 'sonner';
+import { useAuth } from '../hooks/useAuth';
+import { useMarketProductsQuery, useWishlistQuery, useToggleWishlistMutation } from '../hooks/useAppQueries';
 import { categories as mockCategories } from '@/data/mock';
 import bambooFallback from '@/assets/product-bamboo.jpg';
 
@@ -13,71 +14,43 @@ export const Route = createFileRoute('/explore')({
 });
 
 function Explore() {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [products, setProducts] = useState<any[]>([]);
-  const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(false);
 
-  const fetchProducts = async () => {
-    setLoading(true);
-    try {
-      const queryParams = new URLSearchParams();
-      if (searchTerm) queryParams.append('search', searchTerm);
-      if (selectedCategory) queryParams.append('category', selectedCategory);
-
-      const res = await api.get<any>(`/market/products?${queryParams.toString()}`);
-      setProducts(res.items || []);
-    } catch (e) {
-      console.error('Failed to fetch marketplace products:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchWishlist = async () => {
-    try {
-      const wishlist = await api.get<any[]>('/wishlist');
-      setWishlistIds(new Set(wishlist.map(w => w.id)));
-    } catch (e) {
-      // User might not be logged in or other auth issues, fail silently
-    }
-  };
-
+  // Debounce search input
   useEffect(() => {
-    const delayDebounce = setTimeout(() => {
-      fetchProducts();
-    }, 400);
-    return () => clearTimeout(delayDebounce);
-  }, [searchTerm, selectedCategory]);
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 350);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
-  useEffect(() => {
-    fetchWishlist();
-  }, []);
+  // TanStack Query Hooks
+  const { data: products = [], isLoading: loading } = useMarketProductsQuery(debouncedSearch, selectedCategory);
+  const { data: wishlist = [] } = useWishlistQuery();
+  const toggleWishlistMutation = useToggleWishlistMutation();
 
-  const toggleWishlist = async (productId: string) => {
-    try {
-      const isStarred = wishlistIds.has(productId);
-      if (isStarred) {
-        await api.delete(`/wishlist/${productId}`);
-        setWishlistIds(prev => {
-          const next = new Set(prev);
-          next.delete(productId);
-          return next;
-        });
-        toast.success('Removed from wishlist');
-      } else {
-        await api.post('/wishlist', { product_id: productId });
-        setWishlistIds(prev => {
-          const next = new Set(prev);
-          next.add(productId);
-          return next;
-        });
-        toast.success('Added to wishlist');
-      }
-    } catch (e) {
+  const wishlistIds = new Set(wishlist.map((w: any) => w.id || w.product_id));
+
+  const toggleWishlist = (productId: string) => {
+    if (!user) {
       toast.error('You must sign in to wishlist products');
+      return;
     }
+    const isStarred = wishlistIds.has(productId);
+    toggleWishlistMutation.mutate(
+      { productId, isStarred },
+      {
+        onSuccess: () => {
+          toast.success(isStarred ? 'Removed from wishlist' : 'Added to wishlist');
+        },
+        onError: () => {
+          toast.error('Failed to update wishlist');
+        },
+      }
+    );
   };
 
   return (
@@ -132,7 +105,7 @@ function Explore() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {products.map((p) => {
+            {products.map((p: any) => {
               const formattedPrice = p.price ? `₹${Number(p.price).toLocaleString('en-IN')}` : '--';
               const rating = p.ai_confidence ? (4.0 + p.ai_confidence).toFixed(1) : '4.7';
               const stateLabel = p.artisans?.state || p.region || 'India';

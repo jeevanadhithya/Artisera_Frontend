@@ -1,17 +1,22 @@
 import { supabase } from './supabase';
 
 const getApiBaseUrl = () => {
-  // Client-side detection
+  // If explicitly configured via environment variable, always prioritize it
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
+  // Client-side local development check
   if (typeof window !== 'undefined') {
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+      return 'http://localhost:8000/api';
     }
     return 'https://artisera-backend.vercel.app/api';
   }
   
   // SSR/Server-side detection
   if (import.meta.env.DEV) {
-    return import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+    return 'http://localhost:8000/api';
   }
   return 'https://artisera-backend.vercel.app/api';
 };

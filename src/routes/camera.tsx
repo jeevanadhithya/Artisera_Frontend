@@ -85,6 +85,15 @@ function CameraView() {
     };
   }, [facingMode, currentStep]);
 
+  useEffect(() => {
+    if (streamActive && videoRef.current && mediaStreamRef.current) {
+      if (videoRef.current.srcObject !== mediaStreamRef.current) {
+        videoRef.current.srcObject = mediaStreamRef.current;
+        videoRef.current.play().catch(e => console.warn('Video play failed:', e));
+      }
+    }
+  }, [streamActive]);
+
   const toggleFacingMode = () => {
     setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
   };
@@ -201,14 +210,14 @@ function CameraView() {
         {/* 1. CAPTURE / TAKING PHOTO STEP */}
         {currentStep === 'capture' && (
           <>
-            {streamActive ? (
-              <video
-                ref={videoRef}
-                className="absolute inset-0 h-full w-full object-cover"
-                playsInline
-                muted
-              />
-            ) : (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`absolute inset-0 h-full w-full object-cover ${streamActive ? 'block' : 'hidden'}`}
+            />
+            {!streamActive && (
               <div className="absolute inset-0 bg-neutral-900 flex items-center justify-center">
                 <HelpCircle className="h-12 w-12 text-neutral-700 animate-pulse" />
               </div>

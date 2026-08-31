@@ -60,7 +60,7 @@ function Signup() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: isApp ? 'artisera://login-callback' : window.location.origin,
+          redirectTo: isApp ? 'com.artisera.app://login-callback' : window.location.origin,
           queryParams: {
             // Save selected role state or pass it to supabase auth metadata
             role: role

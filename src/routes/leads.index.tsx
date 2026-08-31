@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { ArrowRight, Eye, Send, SlidersHorizontal, Store, BadgeCheck, Crosshair, Loader2 } from 'lucide-react';
 import { PhoneFrame } from '@/components/AppShell';
 import { Chip } from '@/components/ui-bits';
-import { api } from '../lib/api-client';
 import { useAuth } from '../hooks/useAuth';
+import { useOpportunitiesQuery } from '../hooks/useAppQueries';
 import { toast } from 'sonner';
 
 export const Route = createFileRoute('/leads/')({
@@ -33,41 +33,28 @@ const BUYER_TYPES = [
 
 function Leads() {
   const { user, profile, loading: authLoading } = useAuth();
-  const [opportunities, setOpportunities] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { data: rawOpportunities = [], isLoading: loading } = useOpportunitiesQuery();
 
-  useEffect(() => {
-    if (user) {
-      setLoading(true);
-      api.get<any>('/market/opportunities/me')
-        .then(res => {
-          // Add decorative mock details (buyers, types, timelines) to live demand scores
-          const mapped = (res.opportunities || []).map((opp: any, idx: number) => {
-            const buyerName = BUYER_NAMES[idx % BUYER_NAMES.length];
-            const buyerType = BUYER_TYPES[idx % BUYER_TYPES.length];
-            return {
-              id: opp.id,
-              buyer: buyerName,
-              type: buyerType,
-              match: opp.demand_score || 85,
-              title: `Bulk sourcing for ${opp.product}`,
-              summary: opp.reason || 'Strong market matching signal detected from urban retail platforms.',
-              units: `${opp.suggested_quantity} units / month`,
-              budget: `₹${Number(opp.price_range.min).toLocaleString('en-IN')} - ₹${Number(opp.price_range.max).toLocaleString('en-IN')}`,
-              timeline: 'Next 30 days (Flexible)',
-              tags: [res.craft_type || 'Handicraft', opp.demand ? `${opp.demand} demand` : 'Active Match'],
-            };
-          });
-          setOpportunities(mapped);
-        })
-        .catch(err => {
-          console.error('Failed to load opportunities:', err);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    }
-  }, [user]);
+  const opportunities = useMemo(() => {
+    return rawOpportunities.map((opp: any, idx: number) => {
+      const buyerName = BUYER_NAMES[idx % BUYER_NAMES.length];
+      const buyerType = BUYER_TYPES[idx % BUYER_TYPES.length];
+      const minPrice = opp.price_range?.min || 500;
+      const maxPrice = opp.price_range?.max || 1000;
+      return {
+        id: opp.id,
+        buyer: buyerName,
+        type: buyerType,
+        match: opp.demand_score || 85,
+        title: `Bulk sourcing for ${opp.product}`,
+        summary: opp.reason || 'Strong market matching signal detected from urban retail platforms.',
+        units: `${opp.suggested_quantity || 100} units / month`,
+        budget: `₹${Number(minPrice).toLocaleString('en-IN')} - ₹${Number(maxPrice).toLocaleString('en-IN')}`,
+        timeline: 'Next 30 days (Flexible)',
+        tags: [opp.craft_type || profile?.craft_type || 'Handicraft', opp.demand ? `${opp.demand} demand` : 'Active Match'],
+      };
+    });
+  }, [rawOpportunities, profile]);
 
   if (authLoading || loading) {
     return (
@@ -175,7 +162,7 @@ function Leads() {
         </article>
 
         {/* Other Opportunities */}
-        {rest.map((o) => (
+        {rest.map((o: any) => (
           <div
             key={o.id}
             className="app-card block space-y-3 p-4 border border-border bg-card"

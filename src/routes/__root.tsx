@@ -7,7 +7,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 
@@ -127,6 +127,20 @@ function AuthRedirectWrapper() {
   const navigate = useNavigate();
   const routerState = useRouterState();
   const pathname = routerState.location.pathname;
+  const [returnToAppUrl, setReturnToAppUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    // If opened on an external mobile browser during OAuth redirect callback, return back to the Flutter app
+    if (typeof window !== 'undefined' && window.location.hash.includes('access_token=')) {
+      const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+      if (isMobile && !navigator.userAgent.includes('ArtiseraApp')) {
+        const appUrl = `com.artisera.app://login-callback${window.location.hash}`;
+        setReturnToAppUrl(appUrl);
+        // Attempt automatic redirect into the mobile app
+        window.location.href = appUrl;
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!loading) {
@@ -137,6 +151,22 @@ function AuthRedirectWrapper() {
       }
     }
   }, [user, loading, pathname]);
+
+  if (returnToAppUrl) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center bg-background px-6 text-center space-y-4">
+        <img src="/logo.png" alt="Artisera" className="h-16 w-16 object-contain" />
+        <h2 className="font-display text-lg font-bold text-foreground">Completing Sign In...</h2>
+        <p className="text-xs text-muted-foreground">Redirecting back to your Artisera Mobile App.</p>
+        <a
+          href={returnToAppUrl}
+          className="rounded-xl bg-primary px-5 py-3 text-xs font-bold text-primary-foreground shadow-sm hover:opacity-90 inline-block"
+        >
+          Open in Artisera App
+        </a>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
