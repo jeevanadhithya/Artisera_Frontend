@@ -1,15 +1,16 @@
 import { supabase } from './supabase';
 
 const getApiBaseUrl = () => {
-  const envUrl = import.meta.env['VITE_API_BASE_URL'];
-  if (envUrl) return envUrl;
-  
-  // Auto-detect production backend fallback when running on Vercel
-  if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
-    return 'https://artisera-backend.vercel.app/api';
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
   }
-  
-  return 'http://localhost:8000/api';
+  // Local development: use the separate backend dev server
+  if (typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return 'http://localhost:8000/api';
+  }
+  // Production (Vercel): same-origin relative path — frontend and backend on same domain
+  return '/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -60,8 +61,14 @@ const request = async <T>(
       return {} as T;
     }
 
-    const payload = await response.json();
-    
+    const rawText = await response.text();
+    let payload: any = {};
+    try {
+      payload = rawText ? JSON.parse(rawText) : {};
+    } catch (_) {
+      throw new Error(`Server returned error (${response.status}): ${rawText.substring(0, 100)}`);
+    }
+
     if (!response.ok) {
       throw new Error(payload.error?.message || `HTTP error! Status: ${response.status}`);
     }
