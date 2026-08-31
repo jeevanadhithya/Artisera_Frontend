@@ -1,16 +1,19 @@
 import { supabase } from './supabase';
 
 const getApiBaseUrl = () => {
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
+  // Client-side detection
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+    }
+    return 'https://artisera-backend.vercel.app/api';
   }
-  // Local development: use the separate backend dev server
-  if (typeof window !== 'undefined' &&
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    return 'http://localhost:8000/api';
+  
+  // SSR/Server-side detection
+  if (import.meta.env.DEV) {
+    return import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
   }
-  // Production (Vercel): same-origin relative path — frontend and backend on same domain
-  return '/api';
+  return 'https://artisera-backend.vercel.app/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();

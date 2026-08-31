@@ -43,10 +43,11 @@ function Login() {
 
   const handleGoogleLogin = async () => {
     try {
+      const isApp = typeof window !== 'undefined' && window.navigator.userAgent.includes('ArtiseraApp');
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: isApp ? 'artisera://login-callback' : window.location.origin,
         },
       });
       if (error) throw error;
