@@ -107,9 +107,11 @@ function Explore() {
           <div className="grid grid-cols-2 gap-3">
             {products.map((p: any) => {
               const formattedPrice = p.price ? `₹${Number(p.price).toLocaleString('en-IN')}` : '--';
-              const rating = p.ai_confidence ? (4.0 + p.ai_confidence).toFixed(1) : '4.7';
+              const confNum = Number(p.ai_confidence);
+              const rating = !isNaN(confNum) && confNum > 0 ? (4.0 + Math.min(confNum, 1.0) * 0.9).toFixed(1) : '4.7';
               const stateLabel = p.artisans?.state || p.region || 'India';
               const isWishlisted = wishlistIds.has(p.id);
+
 
               return (
                 <article key={p.id} className="app-card overflow-hidden bg-card relative">

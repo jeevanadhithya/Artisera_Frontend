@@ -172,9 +172,11 @@ function Home() {
             <div className="grid grid-cols-2 gap-3">
               {recentProducts.map((p: any) => {
                 const priceLabel = p.price ? `₹${Number(p.price).toLocaleString('en-IN')}` : '--';
-                const confidence = p.ai_confidence ? (4.0 + p.ai_confidence).toFixed(1) : '4.8';
+                const confNum = Number(p.ai_confidence);
+                const confidence = !isNaN(confNum) && confNum > 0 ? (4.0 + Math.min(confNum, 1.0) * 0.9).toFixed(1) : '4.8';
                 
                 return (
+
                   <article key={p.id} className="app-card overflow-hidden bg-card">
                     <div className="relative">
                       <img
