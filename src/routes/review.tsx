@@ -167,11 +167,12 @@ function Review() {
         setTranscribing(true);
         try {
           const res = await api.uploadVoice(productId, audioFile);
-          toast.success('Voice description transcribed with Sarvam AI!');
+          const langInfo = res.voice_language ? ` from ${res.voice_language}` : '';
+          toast.success(`Voice transcribed${langInfo} & converted to English!`);
           setTranscript(res.transcript);
           await fetchProductDetails();
         } catch (e: any) {
-          console.error('Sarvam voice transcription error:', e);
+          console.error('Voice transcription error:', e);
           if (liveText.trim()) {
             toast.info('Using live voice transcript fallback.');
             setTranscript(liveText.trim());
@@ -183,6 +184,7 @@ function Review() {
         } finally {
           setTranscribing(false);
         }
+
       };
 
       mediaRecorder.start(250);
@@ -450,9 +452,9 @@ function Review() {
           <div className="app-card p-4 space-y-3 bg-card border border-border">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-display font-bold text-base">1. Description (Voice or Text)</h3>
-                <p className="text-[10px] text-muted-foreground mt-0.5 max-w-[15rem]">
-                  Speak in Hindi, Tamil, Telugu, Bengali, Marathi, or English.
+                <h3 className="font-display font-bold text-base">1. Description (Voice in Any Language)</h3>
+                <p className="text-[10px] text-muted-foreground mt-0.5 max-w-[16rem]">
+                  Speak in Hindi, Tamil, Telugu, Kannada, Marathi, Bengali, etc. — auto-translated to English.
                 </p>
               </div>
               {isRecording ? (
@@ -475,7 +477,7 @@ function Review() {
 
             {transcribing ? (
               <div className="flex items-center justify-center gap-2 rounded-xl bg-secondary py-4 text-xs text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" /> Transcribing with Sarvam AI...
+                <Loader2 className="h-4 w-4 animate-spin text-primary" /> Transcribing & Converting to English...
               </div>
             ) : (
               <div className="space-y-2">
@@ -487,13 +489,19 @@ function Review() {
                   className="w-full rounded-xl bg-secondary p-3 text-xs border border-border/50 outline-none resize-none text-foreground"
                 />
                 {transcript && (
-                  <div className="flex justify-end gap-2 text-[10px] font-extrabold text-success uppercase">
-                    <span>✓ Description Captured</span>
+                  <div className="flex items-center justify-between text-[10px] font-extrabold text-success uppercase">
+                    <span>✓ English Description Ready</span>
+                    {product?.voice_language && (
+                      <span className="text-muted-foreground font-semibold normal-case">
+                        Spoken in: {product.voice_language}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
             )}
           </div>
+
 
           {/* STEP 3: Selling Price & Cost Breakdown */}
           <div className="app-card p-4 space-y-3 bg-card border border-border">
