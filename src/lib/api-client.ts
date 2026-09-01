@@ -94,14 +94,37 @@ export const api = {
   put: <T>(endpoint: string, body?: any) => request<T>('PUT', endpoint, body),
   delete: <T>(endpoint: string) => request<T>('DELETE', endpoint),
   
-  // Multipart upload helpers
-  uploadImage: <T>(productId: string, file: File) => {
+  // Image Pipeline API Methods
+  uploadProductImage: <T = any>(productId: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return request<T>('POST', `/products/${productId}/image`, formData, true);
+    return request<T>('POST', `/products/${productId}/images`, formData, true);
+  },
+
+  enhanceProductImage: <T = any>(productId: string, imageId: string) => {
+    return request<T>('POST', `/products/${productId}/images/${imageId}/enhance`);
+  },
+
+  enhanceImageDirect: <T = any>(imageId: string) => {
+    return request<T>('POST', `/images/${imageId}/enhance`);
+  },
+
+  selectProductImage: <T = any>(productId: string, imageId: string, selection: 'enhanced' | 'original') => {
+    return request<T>('POST', `/products/${productId}/images/${imageId}/select`, { selection });
+  },
+
+  getProductImages: <T = any[]>(productId: string) => {
+    return request<T>('GET', `/products/${productId}/images`);
+  },
+
+  // Legacy fallback
+  uploadImage: <T = any>(productId: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return request<T>('POST', `/products/${productId}/images`, formData, true);
   },
   
-  enhanceImage: <T>(productId: string, file?: File) => {
+  enhanceImage: <T = any>(productId: string, file?: File) => {
     const formData = new FormData();
     if (file) {
       formData.append('file', file);
@@ -109,12 +132,27 @@ export const api = {
     return request<T>('POST', `/products/${productId}/enhance-image`, formData, true);
   },
   
-  uploadVoice: <T>(productId: string, file: File, language?: string) => {
+  uploadVoice: <T = any>(productId: string, file: File, language?: string) => {
     const formData = new FormData();
     formData.append('file', file);
     if (language) {
       formData.append('language', language);
     }
     return request<T>('POST', `/products/${productId}/voice`, formData, true);
-  }
+  },
+
+  // Multilingual Translations
+  translateProduct: <T = any>(productId: string) => {
+    return request<T>('POST', `/products/${productId}/translate`);
+  },
+
+  getProductTranslations: <T = any[]>(productId: string) => {
+    return request<T>('GET', `/products/${productId}/translations`);
+  },
+
+  // Marketplace Export
+  exportMarketplace: <T = any>(productId: string, marketplace: 'amazon' | 'flipkart' | 'gem') => {
+    return request<T>('GET', `/products/${productId}/export/${marketplace}`);
+  },
 };
+
